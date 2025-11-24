@@ -175,8 +175,7 @@ You need Docker, docker-compose and git setup on your machine. Refer [Docker doc
     wget -O init.sh https://raw.githubusercontent.com/frappe/crm/develop/docker/init.sh
 
 **Step 2**: Run the container and daemonize it
-
-    docker compose up -d
+docker compose up -d
 
 **Step 3**: The site [http://crm.localhost:8000/crm](http://crm.localhost:8000/crm) should now be available. The default credentials are:
 
