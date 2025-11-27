@@ -1,32 +1,66 @@
-# version: "3.7"
-name: crm
-services:
-  mariadb:
-    image: mariadb:10.8
-    command:
-      - --character-set-server=utf8mb4
-      - --collation-server=utf8mb4_unicode_ci
-      - --skip-character-set-client-handshake
-      - --skip-innodb-read-only-compressed # Temporary fix for MariaDB 10.6
-    environment:
-      MYSQL_ROOT_PASSWORD: 123
-    volumes:
-      - mariadb-data:/var/lib/mysql
+# -----------------------------------------------------------
+# 1. Base image = frappe bench
+# -----------------------------------------------------------
+FROM frappe/bench:latest
 
-  redis:
-    image: redis:alpine
+# -----------------------------------------------------------
+# 2. Install MariaDB + Redis inside same container
+# -----------------------------------------------------------
+USER root
 
-  frappe:
-    image: frappe/bench:latest
-    command: bash /workspace/init.sh
-    environment:
-      - SHELL=/bin/bash
-    working_dir: /home/frappe
-    volumes:
-      - .:/workspace
-    ports:
-      - 8000:8000
-      - 9000:9000
+RUN apt-get update && apt-get install -y \
+    mariadb-server \
+    redis-server \
+    supervisor \
+    && rm -rf /var/lib/apt/lists/*
 
-volumes:
-  mariadb-data:
+# -----------------------------------------------------------
+# 3. Create directories
+# -----------------------------------------------------------
+RUN mkdir -p /var/log/supervisor \
+    && mkdir -p /workspace
+
+WORKDIR /workspace
+
+# -----------------------------------------------------------
+# 4. Copy project + init script
+# -----------------------------------------------------------
+COPY . /workspace
+RUN chmod +x /workspace/init.sh
+
+# -----------------------------------------------------------
+# 5. Configure MariaDB for Frappe
+# -----------------------------------------------------------
+RUN sed -i 's/^bind-address.*/bind-address = 0.0.0.0/' /etc/mysql/mariadb.conf.d/50-server.cnf
+
+# -----------------------------------------------------------
+# 6. Create Supervisor config (Redis + MariaDB + Bench)
+# -----------------------------------------------------------
+RUN bash -c 'cat > /etc/supervisor/conf.d/services.conf <<EOF
+[program:mariadb]
+command=/usr/sbin/mysqld
+autostart=true
+autorestart=true
+
+[program:redis]
+command=/usr/bin/redis-server
+autostart=true
+autorestart=true
+
+[program:bench]
+command=bash /workspace/init.sh
+directory=/workspace
+autostart=true
+autorestart=true
+EOF'
+
+# -----------------------------------------------------------
+# 7. Expose ports
+# -----------------------------------------------------------
+EXPOSE 8000
+EXPOSE 9000
+
+# -----------------------------------------------------------
+# 8. Start everything via supervisor
+# -----------------------------------------------------------
+CMD ["/usr/bin/supervisord", "-n"]
