@@ -50,7 +50,7 @@ if [ ! -d "/workspace/frappe-bench" ]; then
     bench new-site crm.localhost \
         --force \
         --admin-password admin \
-        --mariadb-root-password 123 \
+        --mariadb-root-password \
         --no-mariadb-socket
 
     bench --site crm.localhost install-app crm
