@@ -1,35 +1,32 @@
-FROM ubuntu:22.04
+FROM python:3.10-slim
 
-ENV DEBIAN_FRONTEND=noninteractive
-ENV HOME=/home/frappe
-
-# Install docker-friendly dependencies and frappe bench prerequisites
+# 1. Install system deps
 RUN apt-get update && apt-get install -y \
-    python3-pip python3-dev python3-venv git wget curl build-essential \
-    mariadb-server redis-server nginx supervisor locales sudo procps \
-    nodejs npm yarn \
+    curl \
+    gnupg \
+    build-essential \
+    redis-tools \
+    nginx \
+    supervisor \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
-# Create frappe user and workspace
-RUN useradd -ms /bin/bash frappe && mkdir -p /workspace
+# 2. Install Node.js 18 + Yarn
+RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
+    && apt-get install -y nodejs
+
+RUN npm install -g yarn
+
+# 3. Install bench
+RUN pip install frappe-bench==5.19
+
+# 4. Create workspace
 WORKDIR /workspace
 
-# Install bench CLI
-RUN pip3 install --no-cache-dir frappe-bench
+# Copy code
+COPY . .
 
-# Prepare MariaDB dirs
-RUN mkdir -p /var/run/mysqld /var/lib/mysql && chown -R mysql:mysql /var/lib/mysql /var/run/mysqld
+# Permissions
+RUN chmod +x /workspace/init.sh /workspace/start.sh
 
-# Copy init script and configs
-COPY init.sh /workspace/init.sh
-COPY start.sh /workspace/start.sh
-COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
-COPY nginx.conf /etc/nginx/sites-enabled/default
-
-RUN chmod +x /workspace/init.sh  /workspace/start.sh
-
-# expose port 8000
-EXPOSE 8000
-
-# start supervisord which will run mariadb, redis, nginx and bench (init.sh)
-CMD ["/usr/bin/supervisord","-n","-c","/etc/supervisor/conf.d/supervisord.conf"]
+CMD ["/usr/bin/supervisord", "-c", "/workspace/supervisord.conf"]

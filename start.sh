@@ -1,16 +1,10 @@
 #!/bin/bash
-set -euo pipefail
+echo "🚀 start.sh: starting bench..."
 
-echo "🚀 start.sh: starting bench (foreground)..."
-export PATH="$PATH:/home/frappe/.local/bin"
-
-cd /workspace/frappe-bench
-
-# Ensure site exists (safe check)
-if [ ! -f "sites/site_config.json" ] && [ ! -d "sites" ]; then
-  echo "❌ bench not initialized. Please run init.sh once before starting."
-  exit 1
+if [ ! -d "/workspace/frappe-bench" ]; then
+    echo "❌ /workspace/frappe-bench missing. init.sh never completed."
+    exit 1
 fi
 
-# Start bench in foreground so supervisord can capture logs
+cd /workspace/frappe-bench
 exec bench start
