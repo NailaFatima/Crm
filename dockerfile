@@ -1,66 +1,34 @@
-# -----------------------------------------------------------
-# 1. Base image = frappe bench
-# -----------------------------------------------------------
-FROM frappe/bench:latest
+FROM ubuntu:22.04
 
-# -----------------------------------------------------------
-# 2. Install MariaDB + Redis inside same container
-# -----------------------------------------------------------
-USER root
+ENV DEBIAN_FRONTEND=noninteractive
+ENV HOME=/home/frappe
 
+# Install docker-friendly dependencies and frappe bench prerequisites
 RUN apt-get update && apt-get install -y \
-    mariadb-server \
-    redis-server \
-    supervisor \
+    python3-pip python3-dev python3-venv git wget curl build-essential \
+    mariadb-server redis-server nginx supervisor locales sudo procps \
+    nodejs npm yarn \
     && rm -rf /var/lib/apt/lists/*
 
-# -----------------------------------------------------------
-# 3. Create directories
-# -----------------------------------------------------------
-RUN mkdir -p /var/log/supervisor \
-    && mkdir -p /workspace
-
+# Create frappe user and workspace
+RUN useradd -ms /bin/bash frappe && mkdir -p /workspace
 WORKDIR /workspace
 
-# -----------------------------------------------------------
-# 4. Copy project + init script
-# -----------------------------------------------------------
-COPY . /workspace
+# Install bench CLI
+RUN pip3 install --no-cache-dir frappe-bench
+
+# Prepare MariaDB dirs
+RUN mkdir -p /var/run/mysqld /var/lib/mysql && chown -R mysql:mysql /var/lib/mysql /var/run/mysqld
+
+# Copy init script and configs
+COPY init.sh /workspace/init.sh
+COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+COPY nginx.conf /etc/nginx/sites-enabled/default
+
 RUN chmod +x /workspace/init.sh
 
-# -----------------------------------------------------------
-# 5. Configure MariaDB for Frappe
-# -----------------------------------------------------------
-RUN sed -i 's/^bind-address.*/bind-address = 0.0.0.0/' /etc/mysql/mariadb.conf.d/50-server.cnf
-
-# -----------------------------------------------------------
-# 6. Create Supervisor config (Redis + MariaDB + Bench)
-# -----------------------------------------------------------
-RUN bash -c 'cat > /etc/supervisor/conf.d/services.conf <<EOF
-[program:mariadb]
-command=/usr/sbin/mysqld
-autostart=true
-autorestart=true
-
-[program:redis]
-command=/usr/bin/redis-server
-autostart=true
-autorestart=true
-
-[program:bench]
-command=bash /workspace/init.sh
-directory=/workspace
-autostart=true
-autorestart=true
-EOF'
-
-# -----------------------------------------------------------
-# 7. Expose ports
-# -----------------------------------------------------------
+# expose port 8000
 EXPOSE 8000
-EXPOSE 9000
 
-# -----------------------------------------------------------
-# 8. Start everything via supervisor
-# -----------------------------------------------------------
-CMD ["/usr/bin/supervisord", "-n"]
+# start supervisord which will run mariadb, redis, nginx and bench (init.sh)
+CMD ["/usr/bin/supervisord","-n","-c","/etc/supervisor/conf.d/supervisord.conf"]
