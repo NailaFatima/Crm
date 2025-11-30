@@ -22,10 +22,11 @@ RUN mkdir -p /var/run/mysqld /var/lib/mysql && chown -R mysql:mysql /var/lib/mys
 
 # Copy init script and configs
 COPY init.sh /workspace/init.sh
+COPY start.sh /workspace/start.sh
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 COPY nginx.conf /etc/nginx/sites-enabled/default
 
-RUN chmod +x /workspace/init.sh
+RUN chmod +x /workspace/init.sh  /workspace/start.sh
 
 # expose port 8000
 EXPOSE 8000
