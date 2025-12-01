@@ -1,12 +1,14 @@
 #!/bin/bash
+set -e
+
 echo "🚀 start.sh: starting bench..."
 
 if [ ! -d "/workspace/frappe-bench" ]; then
-    echo "❌ /workspace/frappe-bench missing. init.sh failed earlier."
+    echo "❌ Bench not found. Run init.sh first."
     exit 1
 fi
 
 cd /workspace/frappe-bench
 
-echo "▶ Running: bench start on port 8001"
-exec bench start --port 8001
+# Run bench in foreground mode (required for Docker)
+bench start

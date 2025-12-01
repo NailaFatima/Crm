@@ -1,6 +1,6 @@
 FROM python:3.10-slim
 
-# 1. Install system deps
+# System dependencies
 RUN apt-get update && apt-get install -y \
     curl \
     gnupg \
@@ -11,22 +11,22 @@ RUN apt-get update && apt-get install -y \
     git \
     && rm -rf /var/lib/apt/lists/*
 
-# 2. Install Node.js 18 + Yarn
+# Node + Yarn
 RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
     && apt-get install -y nodejs
-
 RUN npm install -g yarn
 
-# 3. Install bench
-RUN pip install frappe-bench==5.19
+# FIX 1 (Required!) Click compatible version
+RUN pip install --no-cache-dir "click==8.1.3"
 
-# 4. Create workspace
+# Install bench
+RUN pip install --no-cache-dir frappe-bench==5.19
+
 WORKDIR /workspace
 
-# Copy code
 COPY . .
 
-# Permissions
-RUN chmod +x /workspace/init.sh /workspace/start.sh
+RUN chmod +x /workspace/init.sh \
+             /workspace/start.sh
 
 CMD ["/usr/bin/supervisord", "-c", "/workspace/supervisord.conf"]
